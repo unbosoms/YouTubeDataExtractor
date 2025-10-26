@@ -160,12 +160,11 @@ class YouTubeStatsExtractor:
 
 def main():
     """メイン関数"""
-    # .envファイルから環境変数を読み込み
+    # .envファイルから環境変数を読み込み（ローカル実行時）
     load_dotenv()
 
     api_key = os.getenv('YOUTUBE_API_KEY')
     channel_id = os.getenv('YOUTUBE_CHANNEL_ID')
-    output_file = os.getenv('OUTPUT_FILE', 'youtube_stats.csv')
 
     # 環境変数のチェック
     if not api_key:
@@ -177,9 +176,21 @@ def main():
     extractor = YouTubeStatsExtractor(api_key)
     df = extractor.extract_channel_stats(channel_id)
 
+    # dataディレクトリを作成（存在しない場合）
+    os.makedirs('data', exist_ok=True)
+
+    # タイムスタンプ付きファイル名を生成
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    output_file = f'data/youtube_stats_{timestamp}.csv'
+
+    # 最新データとしても保存
+    latest_file = 'data/youtube_stats_latest.csv'
+
     # CSVファイルに保存
     df.to_csv(output_file, index=False, encoding='utf-8-sig')
+    df.to_csv(latest_file, index=False, encoding='utf-8-sig')
     print(f"\n統計情報を {output_file} に保存しました")
+    print(f"最新データを {latest_file} に保存しました")
 
     # 基本統計を表示
     print("\n=== 基本統計 ===")

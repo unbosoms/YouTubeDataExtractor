@@ -1,0 +1,50 @@
+name: Fetch YouTube Statistics
+
+on:
+  # 毎日午前9時（UTC）に実行（日本時間18時）
+  schedule:
+    - cron: '0 9 * * *'
+
+  # 手動実行も可能
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-stats:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Fetch YouTube statistics
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
+        run: |
+          python youtube_stats_extractor.py
+
+      - name: Commit and push data
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/
+
+          # 変更があれば、コミット＆プッシュ
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "📊 YouTube統計データを更新 ($(date +'%Y-%m-%d %H:%M:%S'))"
+            git push
+          fi

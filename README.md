@@ -1,6 +1,7 @@
 # YouTube Data Extractor
 
 YouTubeチャンネルの動画統計情報を取得するPythonプログラムです。
+GitHub Actionsで定期実行し、データをリポジトリに自動保存できます。
 
 ## 機能
 
@@ -16,9 +17,11 @@ YouTubeチャンネルの動画統計情報を取得するPythonプログラム�
   - 説明文
   - サムネイルURL
   - 動画URL
-- データをCSVファイルに保存
+- データをタイムスタンプ付きCSVファイルで保存
 - 基本統計情報の表示（総視聴回数、平均視聴回数など）
 - 人気動画トップ5の表示
+- **GitHub Actionsで毎日自動実行**
+- **データをGitHubリポジトリに自動保存**
 
 ## 必要要件
 
@@ -71,7 +74,46 @@ OUTPUT_FILE=youtube_stats.csv
    - `https://www.youtube.com/channel/UCxxxxxxxxxxxxxx` の `UCxxxxxxxxxxxxxx` 部分
 2. カスタムURLの場合は、チャンネルページのソースコードから`channelId`を検索
 
+## GitHub Actionsで自動実行する設定
+
+GitHub Actionsを使用して、毎日自動でYouTube統計を取得し、リポジトリに保存できます。
+
+### 1. GitHub Secretsの設定
+
+リポジトリの設定からSecretsを追加します：
+
+1. GitHubリポジトリページで `Settings` → `Secrets and variables` → `Actions` に移動
+2. `New repository secret` をクリック
+3. 以下の2つのSecretsを追加：
+
+   - **Name**: `YOUTUBE_API_KEY`
+     - **Value**: あなたのYouTube Data API v3のAPIキー
+
+   - **Name**: `YOUTUBE_CHANNEL_ID`
+     - **Value**: 対象のチャンネルID
+
+### 2. GitHub Actionsの有効化
+
+- リポジトリの `Actions` タブで、ワークフローが有効になっていることを確認
+- `Fetch YouTube Statistics` ワークフローが表示されるはずです
+
+### 3. 実行スケジュール
+
+- **自動実行**: 毎日午前9時（UTC）= 日本時間18時に自動実行
+- **手動実行**: `Actions` タブから `Fetch YouTube Statistics` を選択し、`Run workflow` で手動実行可能
+
+### 4. データの保存場所
+
+取得したデータは `data/` ディレクトリに保存されます：
+
+- `data/youtube_stats_YYYYMMDD_HHMMSS.csv`: タイムスタンプ付きデータ（履歴）
+- `data/youtube_stats_latest.csv`: 最新のデータ
+
+データは自動的にコミット・プッシュされ、リポジトリに保存されます。
+
 ## 使い方
+
+### ローカルで実行する場合
 
 スクリプトを実行：
 
@@ -82,7 +124,7 @@ python youtube_stats_extractor.py
 実行すると：
 
 1. 指定したチャンネルの全動画情報を取得
-2. 統計情報をCSVファイルに保存
+2. 統計情報をタイムスタンプ付きCSVファイルとして`data/`ディレクトリに保存
 3. コンソールに基本統計と人気動画トップ5を表示
 
 ## 出力例
@@ -93,7 +135,8 @@ python youtube_stats_extractor.py
 動画数: 150件
 動画の詳細情報を取得中...
 
-統計情報を youtube_stats.csv に保存しました
+統計情報を data/youtube_stats_20250126_180000.csv に保存しました
+最新データを data/youtube_stats_latest.csv に保存しました
 
 === 基本統計 ===
 総動画数: 150件
@@ -129,6 +172,8 @@ CSVファイルには以下のカラムが含まれます：
 - このスクリプトは1回の実行で約50-100ユニット程度を消費します（動画数による）
 - APIキーは絶対に公開しないでください
 - `.env`ファイルは`.gitignore`に追加することを推奨します
+- GitHub Actionsで実行する場合は、必ずGitHub Secretsを使用してAPIキーを保護してください
+- データファイル（`data/`ディレクトリ）はリポジトリにコミットされるため、動画数が多い場合はリポジトリサイズが増加します
 
 ## トラブルシューティング
 
@@ -145,6 +190,17 @@ CSVファイルには以下のカラムが含まれます：
 ### クォータ超過エラー
 
 - 翌日まで待つか、Google Cloud Consoleでクォータの引き上げをリクエスト
+
+### GitHub Actionsが失敗する
+
+- GitHub Secretsが正しく設定されているか確認（`YOUTUBE_API_KEY`と`YOUTUBE_CHANNEL_ID`）
+- リポジトリの`Actions`タブでエラーログを確認
+- ワークフローに`contents: write`権限が付与されているか確認（設定済み）
+
+### データがコミットされない
+
+- GitHub Actionsのログを確認
+- リポジトリのブランチ保護ルールを確認（保護されている場合はbotからのプッシュが制限される可能性）
 
 ## ライセンス
 
