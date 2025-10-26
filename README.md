@@ -14,13 +14,15 @@ GitHub Actionsで定期実行し、データをリポジトリに自動保存で
   - いいね数
   - コメント数
   - 動画の長さ（ISO 8601形式と秒数）
-  - ショート動画判定（60秒以下を自動判定）
+  - **ショート動画判定**（60秒以内 + #shortsハッシュタグで判定）
+  - **ライブ配信判定**（ライブ配信アーカイブを自動検出）
+  - ハッシュタグの有無
   - 説明文
   - サムネイルURL
   - 動画URL
 - データをタイムスタンプ付きCSVファイルで保存
 - 基本統計情報の表示（総視聴回数、平均視聴回数など）
-- **ショート動画と通常動画の統計を個別に表示**
+- **ショート動画、通常動画、ライブ配信の統計を個別に表示**
 - 人気動画トップ5の表示（動画タイプも表示）
 - **GitHub Actionsで毎日自動実行**
 - **データをGitHubリポジトリに自動保存**
@@ -155,15 +157,19 @@ python youtube_stats_extractor.py
 === 基本統計 ===
 総動画数: 150件
   - ショート動画: 45件
-  - 通常動画: 105件
+  - ライブ配信（アーカイブ含む）: 10件
+  - 通常動画: 95件
+  - 60秒以内（ハッシュタグなし）: 3件
 
 総視聴回数: 1,234,567回
   - ショート動画: 234,567回
-  - 通常動画: 1,000,000回
+  - ライブ配信: 150,000回
+  - 通常動画: 850,000回
 
 平均視聴回数: 8,230回
   - ショート動画: 5,212回
-  - 通常動画: 9,523回
+  - ライブ配信: 15,000回
+  - 通常動画: 8,947回
 
 総いいね数: 45,678件
 総コメント数: 12,345件
@@ -171,6 +177,7 @@ python youtube_stats_extractor.py
 === 最も視聴された動画 トップ5 ===
 [通常] 動画タイトル1... - 50,000回視聴 (2024-01-15)
 [ショート] 動画タイトル2... - 45,000回視聴 (2024-02-20)
+[ライブ] 動画タイトル3... - 40,000回視聴 (2024-03-10)
 ...
 ```
 
@@ -186,18 +193,31 @@ CSVファイルには以下のカラムが含まれます：
 - `comment_count`: コメント数
 - `duration`: 動画の長さ（ISO 8601形式、例: PT1M30S = 1分30秒）
 - `duration_seconds`: 動画の長さ（秒数）
-- `is_short`: ショート動画判定（True/False、60秒以下をTrue）
+- `has_shorts_hashtag`: #shortsハッシュタグの有無（True/False）
+- `is_short`: ショート動画判定（True/False）
+- `is_live_broadcast`: ライブ配信判定（True/False）
+- `live_broadcast_status`: ライブ配信ステータス（none/live/upcoming/completed）
 - `description`: 動画の説明文
 - `thumbnail_url`: サムネイルURL
 - `video_url`: 動画URL
 
-### ショート動画の判定基準
+### ショート動画の判定基準（保守的な判定）
 
-- **60秒以下**: ショート動画（`is_short = True`）
-- **60秒超**: 通常動画（`is_short = False`）
+このプログラムは、**60秒以内 AND #shortsハッシュタグあり** の両方を満たす動画のみをショート動画と判定します：
 
-※ YouTube Shortsは最大60秒（一部90秒対応）ですが、このプログラムでは60秒を基準としています。
-  判定基準を変更したい場合は、`youtube_stats_extractor.py`の112行目を編集してください。
+- ✅ `is_short = True`: 60秒以内 AND タイトルまたは説明文に `#shorts` または `#short` が含まれる
+- ❌ `is_short = False`: 上記以外（60秒超、またはハッシュタグなし）
+
+**60秒以内だがハッシュタグなしの動画について**:
+- これらは `is_short = False` と判定されますが、統計表示時に「60秒以内（ハッシュタグなし）」として別途カウントされます
+- CSVで `duration_seconds` と `has_shorts_hashtag` を確認することで、後から分析できます
+
+### ライブ配信の判定基準
+
+- `live_broadcast_status = "completed"`: 過去のライブ配信アーカイブ → `is_live_broadcast = True`
+- `live_broadcast_status = "live"`: 現在配信中（通常は存在しない） → `is_live_broadcast = True`
+- `live_broadcast_status = "upcoming"`: 配信予定 → `is_live_broadcast = True`
+- `live_broadcast_status = "none"`: 通常の動画 → `is_live_broadcast = False`
 
 ## 注意事項
 
