@@ -28,6 +28,21 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: Check secrets configuration
+        run: |
+          if [ -z "${{ secrets.YOUTUBE_API_KEY }}" ]; then
+            echo "❌ YOUTUBE_API_KEY is not set in GitHub Secrets"
+            exit 1
+          else
+            echo "✅ YOUTUBE_API_KEY is configured"
+          fi
+          if [ -z "${{ secrets.YOUTUBE_CHANNEL_ID }}" ]; then
+            echo "❌ YOUTUBE_CHANNEL_ID is not set in GitHub Secrets"
+            exit 1
+          else
+            echo "✅ YOUTUBE_CHANNEL_ID is configured"
+          fi
+
       - name: Fetch YouTube statistics
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}

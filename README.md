@@ -193,9 +193,27 @@ CSVファイルには以下のカラムが含まれます：
 
 ### GitHub Actionsが失敗する
 
-- GitHub Secretsが正しく設定されているか確認（`YOUTUBE_API_KEY`と`YOUTUBE_CHANNEL_ID`）
+#### "YOUTUBE_API_KEYが設定されていません" エラー
+
+1. **GitHub Secretsの設定を確認**:
+   - リポジトリの `Settings` → `Secrets and variables` → `Actions` に移動
+   - `YOUTUBE_API_KEY` と `YOUTUBE_CHANNEL_ID` の両方が登録されているか確認
+   - Secret名は**正確に一致**する必要があります（大文字小文字を含む）
+
+2. **Secretの再設定**:
+   - 既存のSecretを削除して再度追加してみる
+   - 値にスペースや改行が含まれていないか確認
+
+3. **ワークフローログを確認**:
+   - `Actions` タブで失敗したワークフローを開く
+   - "Check secrets configuration" ステップで何が表示されているか確認
+   - ✅ が表示されていればSecretは正しく設定されています
+
+#### その他のエラー
+
 - リポジトリの`Actions`タブでエラーログを確認
 - ワークフローに`contents: write`権限が付与されているか確認（設定済み）
+- APIキーのクォータが超過していないか確認
 
 ### データがコミットされない
 

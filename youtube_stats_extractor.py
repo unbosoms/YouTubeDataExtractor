@@ -168,9 +168,17 @@ def main():
 
     # 環境変数のチェック
     if not api_key:
-        raise ValueError("YOUTUBE_API_KEYが設定されていません。.envファイルを確認してください。")
+        raise ValueError(
+            "YOUTUBE_API_KEYが設定されていません。\n"
+            "ローカル実行の場合: .envファイルにYOUTUBE_API_KEYを設定してください。\n"
+            "GitHub Actions実行の場合: リポジトリのSecrets設定でYOUTUBE_API_KEYを追加してください。"
+        )
     if not channel_id:
-        raise ValueError("YOUTUBE_CHANNEL_IDが設定されていません。.envファイルを確認してください。")
+        raise ValueError(
+            "YOUTUBE_CHANNEL_IDが設定されていません。\n"
+            "ローカル実行の場合: .envファイルにYOUTUBE_CHANNEL_IDを設定してください。\n"
+            "GitHub Actions実行の場合: リポジトリのSecrets設定でYOUTUBE_CHANNEL_IDを追加してください。"
+        )
 
     # 統計情報を取得
     extractor = YouTubeStatsExtractor(api_key)
