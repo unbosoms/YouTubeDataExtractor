@@ -80,17 +80,29 @@ GitHub Actionsを使用して、毎日自動でYouTube統計を取得し、リ�
 
 ### 1. GitHub Secretsの設定
 
-リポジトリの設定からSecretsを追加します：
+**方法A: Environment Secrets（推奨）**
 
-1. GitHubリポジトリページで `Settings` → `Secrets and variables` → `Actions` に移動
-2. `New repository secret` をクリック
-3. 以下の2つのSecretsを追加：
+このリポジトリは「Env」というEnvironmentを使用する設定になっています：
+
+1. GitHubリポジトリページで `Settings` → `Environments` に移動
+2. 「Env」という名前のEnvironmentを選択（なければ作成）
+3. `Add secret` をクリック
+4. 以下の2つのSecretsを追加：
 
    - **Name**: `YOUTUBE_API_KEY`
      - **Value**: あなたのYouTube Data API v3のAPIキー
 
    - **Name**: `YOUTUBE_CHANNEL_ID`
      - **Value**: 対象のチャンネルID
+
+**方法B: Repository Secrets**
+
+または、リポジトリ全体で使用するSecretsとして設定する場合：
+
+1. GitHubリポジトリページで `Settings` → `Secrets and variables` → `Actions` に移動
+2. `New repository secret` をクリック
+3. 上記と同じ2つのSecretsを追加
+4. ワークフローファイル (`.github/workflows/fetch_youtube_stats.yml`) の `environment: Env` の行を削除またはコメントアウト
 
 ### 2. GitHub Actionsの有効化
 
@@ -195,16 +207,21 @@ CSVファイルには以下のカラムが含まれます：
 
 #### "YOUTUBE_API_KEYが設定されていません" エラー
 
-1. **GitHub Secretsの設定を確認**:
-   - リポジトリの `Settings` → `Secrets and variables` → `Actions` に移動
+1. **Environment Secretsの設定を確認**（このリポジトリのデフォルト設定）:
+   - リポジトリの `Settings` → `Environments` → `Env` に移動
    - `YOUTUBE_API_KEY` と `YOUTUBE_CHANNEL_ID` の両方が登録されているか確認
    - Secret名は**正確に一致**する必要があります（大文字小文字を含む）
+   - Environmentの名前が「Env」であることを確認
 
-2. **Secretの再設定**:
+2. **または、Repository Secretsの設定を確認**:
+   - リポジトリの `Settings` → `Secrets and variables` → `Actions` に移動
+   - こちらに設定する場合は、ワークフローファイルの `environment: Env` の行を削除する必要があります
+
+3. **Secretの再設定**:
    - 既存のSecretを削除して再度追加してみる
    - 値にスペースや改行が含まれていないか確認
 
-3. **ワークフローログを確認**:
+4. **ワークフローログを確認**:
    - `Actions` タブで失敗したワークフローを開く
    - "Check secrets configuration" ステップで何が表示されているか確認
    - ✅ が表示されていればSecretは正しく設定されています
