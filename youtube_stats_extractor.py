@@ -122,7 +122,7 @@ class YouTubeStatsExtractor:
                 )
 
                 # ショート動画判定（保守的：60秒以内 AND ハッシュタグあり）
-                is_short = duration_seconds <= 60 and has_shorts_hashtag
+                is_short = duration_seconds <= 60 or has_shorts_hashtag
 
                 # ライブ配信判定
                 live_broadcast_content = item['snippet'].get('liveBroadcastContent', 'none')
