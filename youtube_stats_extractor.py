@@ -12,6 +12,7 @@ from typing import List, Dict
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
 import pandas as pd
+import isodate
 
 
 class YouTubeStatsExtractor:
@@ -103,6 +104,13 @@ class YouTubeStatsExtractor:
             response = request.execute()
 
             for item in response['items']:
+                # durationをISO 8601形式からパース
+                duration_iso = item['contentDetails']['duration']
+                duration_seconds = int(isodate.parse_duration(duration_iso).total_seconds())
+
+                # 60秒以下をショート動画と判定（YouTube Shortsは最大60秒）
+                is_short = duration_seconds <= 60
+
                 video_stats = {
                     'video_id': item['id'],
                     'title': item['snippet']['title'],
@@ -110,7 +118,9 @@ class YouTubeStatsExtractor:
                     'view_count': item['statistics'].get('viewCount', 0),
                     'like_count': item['statistics'].get('likeCount', 0),
                     'comment_count': item['statistics'].get('commentCount', 0),
-                    'duration': item['contentDetails']['duration'],
+                    'duration': duration_iso,
+                    'duration_seconds': duration_seconds,
+                    'is_short': is_short,
                     'description': item['snippet']['description'],
                     'thumbnail_url': item['snippet']['thumbnails']['default']['url'],
                     'video_url': f"https://www.youtube.com/watch?v={item['id']}"
@@ -203,16 +213,32 @@ def main():
     # 基本統計を表示
     print("\n=== 基本統計 ===")
     print(f"総動画数: {len(df)}件")
-    print(f"総視聴回数: {df['view_count'].sum():,}回")
-    print(f"平均視聴回数: {df['view_count'].mean():,.0f}回")
-    print(f"総いいね数: {df['like_count'].sum():,}件")
+
+    # ショート動画と通常動画の内訳
+    shorts_df = df[df['is_short'] == True]
+    regular_df = df[df['is_short'] == False]
+    print(f"  - ショート動画: {len(shorts_df)}件")
+    print(f"  - 通常動画: {len(regular_df)}件")
+
+    print(f"\n総視聴回数: {df['view_count'].sum():,}回")
+    print(f"  - ショート動画: {shorts_df['view_count'].sum():,}回")
+    print(f"  - 通常動画: {regular_df['view_count'].sum():,}回")
+
+    print(f"\n平均視聴回数: {df['view_count'].mean():,.0f}回")
+    if len(shorts_df) > 0:
+        print(f"  - ショート動画: {shorts_df['view_count'].mean():,.0f}回")
+    if len(regular_df) > 0:
+        print(f"  - 通常動画: {regular_df['view_count'].mean():,.0f}回")
+
+    print(f"\n総いいね数: {df['like_count'].sum():,}件")
     print(f"総コメント数: {df['comment_count'].sum():,}件")
 
     # 最も視聴された動画トップ5
     print("\n=== 最も視聴された動画 トップ5 ===")
-    top_videos = df.nlargest(5, 'view_count')[['title', 'view_count', 'published_at']]
+    top_videos = df.nlargest(5, 'view_count')[['title', 'view_count', 'is_short', 'published_at']]
     for idx, row in top_videos.iterrows():
-        print(f"{row['title'][:50]}... - {row['view_count']:,}回視聴 ({row['published_at'].date()})")
+        video_type = "ショート" if row['is_short'] else "通常"
+        print(f"[{video_type}] {row['title'][:50]}... - {row['view_count']:,}回視聴 ({row['published_at'].date()})")
 
 
 if __name__ == '__main__':
