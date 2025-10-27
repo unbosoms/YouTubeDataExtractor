@@ -128,10 +128,14 @@ class YouTubeStatsExtractor:
                 live_broadcast_content = item['snippet'].get('liveBroadcastContent', 'none')
                 is_live_broadcast = live_broadcast_content in ['live', 'upcoming', 'completed']
 
+                # データ取得日時（ISO 8601形式）
+                fetched_at = datetime.now().isoformat()
+
                 video_stats = {
                     'video_id': item['id'],
                     'title': title,
                     'published_at': item['snippet']['publishedAt'],
+                    'fetched_at': fetched_at,
                     'view_count': item['statistics'].get('viewCount', 0),
                     'like_count': item['statistics'].get('likeCount', 0),
                     'comment_count': item['statistics'].get('commentCount', 0),
