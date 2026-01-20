@@ -3,7 +3,7 @@ name: Fetch YouTube Statistics
 on:
   # 毎日午前9時（UTC）に実行（日本時間18時）
   schedule:
-    - cron: '0 9 * * *'
+    - cron: '0 * * * *'
 
   # 手動実行も可能
   workflow_dispatch:
