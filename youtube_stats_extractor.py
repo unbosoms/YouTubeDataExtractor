@@ -104,11 +104,15 @@ class YouTubeStatsExtractor:
             response = request.execute()
 
             for item in response['items']:
-                # durationをISO 8601形式からパース
-                duration_iso = item['contentDetails']['duration']
-                duration_seconds = int(isodate.parse_duration(duration_iso).total_seconds())
+                # contentDetailsまたはdurationがない動画はスキップ
+                content_details = item.get('contentDetails', {})
+                if 'duration' not in content_details:
+                    print(f"警告: 動画 {item['id']} の duration が取得できません（削除済み/非公開の可能性）。スキップします。")
+                    continue
 
-                # タイトルと説明文を取得
+                # durationをISO 8601形式からパース
+                duration_iso = content_details['duration']
+                duration_seconds = int(isodate.parse_duration(duration_iso).total_seconds())                # タイトルと説明文を取得
                 title = item['snippet']['title']
                 description = item['snippet']['description']
 
