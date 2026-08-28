@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # AWS OIDC認証に必要
 
 jobs:
   fetch-stats:
@@ -44,14 +45,25 @@ jobs:
             echo "✅ YOUTUBE_CHANNEL_ID is configured"
           fi
 
+      - name: Configure AWS credentials
+        if: ${{ vars.S3_BUCKET != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+
       - name: Fetch YouTube statistics
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          S3_PREFIX: ${{ vars.S3_PREFIX || 'youtube_stats' }}
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
         run: |
           python youtube_stats_extractor.py
 
-      - name: Commit and push data
+      - name: Commit and push data (S3未設定時のみ従来のCSV push)
+        if: ${{ vars.S3_BUCKET == '' }}
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"

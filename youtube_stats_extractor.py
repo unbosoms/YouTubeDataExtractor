@@ -7,12 +7,17 @@ YouTube Channel Video Statistics Extractor
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
 import pandas as pd
 import isodate
+
+# .envの環境変数（S3_BUCKET等）はs3_storeがimport時に参照するため先に読み込む
+load_dotenv()
+
+import s3_store
 
 
 class YouTubeStatsExtractor:
@@ -222,21 +227,52 @@ def main():
     extractor = YouTubeStatsExtractor(api_key)
     df = extractor.extract_channel_stats(channel_id)
 
-    # dataディレクトリを作成（存在しない場合）
-    os.makedirs('data', exist_ok=True)
+    #################################
+    # 取得データを書き出す
+    # - S3_BUCKET設定時: Parquet形式でS3へ（metrics + attributes）
+    # - 未設定時: 従来どおりCSVをdataフォルダへ
+    #################################
+    if s3_store.S3_BUCKET:
+        JST = timezone(timedelta(hours=9), 'JST')
+        snapshot_ts = datetime.now(JST).replace(tzinfo=None)  # JSTのnaive timestampとして保存
+        s3 = s3_store.make_client()
 
-    # タイムスタンプ付きファイル名を生成
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    output_file = f'data/youtube_stats_{timestamp}.csv'
+        # 指標の時系列を毎回追記
+        metrics = s3_store.build_metrics(df, snapshot_ts)
+        s3_store.upload_parquet(s3, metrics, s3_store.metrics_key(snapshot_ts))
+        print(f"\nmetrics: {len(metrics)}行をアップロードしました")
 
-    # 最新データとしても保存
-    latest_file = 'data/youtube_stats_latest.csv'
+        # 属性は前回からの変更行のみ追記（SCD2）
+        row_hashes = s3_store.compute_row_hashes(df)
+        prev_hashes = s3_store.load_previous_hashes(s3)
+        changed = s3_store.detect_changes(df, row_hashes, prev_hashes)
+        if changed.any():
+            attrs = s3_store.build_attributes(df[changed], snapshot_ts, row_hashes[changed])
+            s3_store.upload_parquet(s3, attrs, s3_store.attributes_key(snapshot_ts))
+            print(f"attributes: 変更{len(attrs)}行をアップロードしました")
+        else:
+            print("attributes: 変更なし")
 
-    # CSVファイルに保存
-    df.to_csv(output_file, index=False, encoding='utf-8-sig')
-    df.to_csv(latest_file, index=False, encoding='utf-8-sig')
-    print(f"\n統計情報を {output_file} に保存しました")
-    print(f"最新データを {latest_file} に保存しました")
+        # 次回の変更検知用にハッシュを保存（削除された動画の履歴も残す）
+        ids = df[s3_store.KEY_COLUMN].astype(str)
+        new_hashes = {**prev_hashes, **dict(zip(ids, row_hashes))}
+        s3_store.save_hashes(s3, new_hashes)
+    else:
+        # dataディレクトリを作成（存在しない場合）
+        os.makedirs('data', exist_ok=True)
+
+        # タイムスタンプ付きファイル名を生成
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        output_file = f'data/youtube_stats_{timestamp}.csv'
+
+        # 最新データとしても保存
+        latest_file = 'data/youtube_stats_latest.csv'
+
+        # CSVファイルに保存
+        df.to_csv(output_file, index=False, encoding='utf-8-sig')
+        df.to_csv(latest_file, index=False, encoding='utf-8-sig')
+        print(f"\n統計情報を {output_file} に保存しました")
+        print(f"最新データを {latest_file} に保存しました")
 
     # 基本統計を表示
     print("\n=== 基本統計 ===")
