@@ -1,0 +1,40 @@
+name: Migrate historical CSVs to S3
+run-name: 過去CSVデータのS3一括移行（1回限り）
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    environment: Env  # GitHub Environmentsで設定したSecretsを使用
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+
+      - name: Run migration
+        env:
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          S3_PREFIX: ${{ vars.S3_PREFIX || 'youtube_stats' }}
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+        run: |
+          python migrate_to_s3.py
