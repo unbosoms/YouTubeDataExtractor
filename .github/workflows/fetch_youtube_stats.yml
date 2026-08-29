@@ -1,9 +1,11 @@
 name: Fetch YouTube Statistics
 
 on:
-  # 毎日午前9時（UTC）に実行（日本時間18時）
+  # 毎時17分に実行
+  # 毎時0分はGitHub全体で最も混雑しスキップされやすいため、キリの悪い分を指定している
+  # （scheduleはベストエフォートのため、それでも遅延・スキップは起こり得る）
   schedule:
-    - cron: '0 * * * *'
+    - cron: '17 * * * *'
 
   # 手動実行も可能
   workflow_dispatch:

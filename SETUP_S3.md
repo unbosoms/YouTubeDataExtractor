@@ -101,7 +101,7 @@ python migrate_to_s3.py
 ## 4. Athenaテーブル作成
 
 `athena_ddl.sql` の `<YOUR_BUCKET>` をバケット名に置き換えて
-Athenaのクエリエディタで実行（DDL2つ＋データベース作成）。
+Athenaのクエリエディタで実行（データベース作成＋テーブル2つ＋ビュー2つ）。
 
 確認クエリ:
 
@@ -109,6 +109,19 @@ Athenaのクエリエディタで実行（DDL2つ＋データベース作成）�
 SELECT count(*) FROM youtube_stats.metrics;
 SELECT max(snapshot_ts) FROM youtube_stats.metrics;
 ```
+
+### 日次集計ビュー
+
+`athena_ddl.sql` には日毎の分析用ビューも含まれている:
+
+- `daily_metrics`: 日毎の各動画の視聴回数・いいね数（その日の最後の
+  スナップショット値）。累積値なので折れ線グラフ向き
+- `daily_metrics_diff`: 上記の前日比の増分。「その日に何回見られたか」を
+  表すので棒グラフ向き
+
+スケジュール実行は遅延・スキップが起こり得るが、これらのビューは
+「その日の最後のスナップショット」を採るため、1日1回でも成功していれば
+正しく集計される。
 
 ## 5. Tableau Cloud/Server から接続
 
@@ -119,7 +132,8 @@ SELECT max(snapshot_ts) FROM youtube_stats.metrics;
 4. 認証: Athena/S3の読み取り権限を持つIAMアクセスキー
 5. データベース `youtube_stats` の `metrics` / `attributes` を結合して利用
 
-時系列グラフは `metrics`、タイトル等の表示には `attributes` の
+時系列グラフは `metrics`（日単位なら `daily_metrics` /
+`daily_metrics_diff`）、タイトル等の表示には `attributes` の
 各動画最新行（`athena_ddl.sql` 末尾のクエリ例参照）をJOINする。
 
 ## 6. （任意）リポジトリの軽量化
