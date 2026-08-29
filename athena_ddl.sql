@@ -48,6 +48,35 @@ CREATE EXTERNAL TABLE youtube_stats.attributes (
 STORED AS PARQUET
 LOCATION 's3://<YOUR_BUCKET>/youtube_stats/attributes/';
 
+-- 日毎の各動画の指標（その日の最後のスナップショット値）
+-- 毎時実行のスナップショットから1日1行に集約する。実行時刻のばらつきや
+-- スキップがあっても、その日に1回でも成功していれば正しく集計される
+CREATE OR REPLACE VIEW youtube_stats.daily_metrics AS
+SELECT
+  video_id,
+  date(snapshot_ts) AS dt,
+  max_by(view_count, snapshot_ts)    AS view_count,
+  max_by(like_count, snapshot_ts)    AS like_count,
+  max_by(comment_count, snapshot_ts) AS comment_count
+FROM youtube_stats.metrics
+GROUP BY video_id, date(snapshot_ts);
+
+-- 日毎の増分（前日比）
+-- 注意:
+-- - 各動画のデータ取得初日は比較相手がないため増分はNULLになる
+-- - 丸1日欠測があった場合、翌日の増分に複数日分が乗る
+CREATE OR REPLACE VIEW youtube_stats.daily_metrics_diff AS
+SELECT
+  video_id,
+  dt,
+  view_count,
+  like_count,
+  comment_count,
+  view_count    - lag(view_count)    OVER (PARTITION BY video_id ORDER BY dt) AS daily_views,
+  like_count    - lag(like_count)    OVER (PARTITION BY video_id ORDER BY dt) AS daily_likes,
+  comment_count - lag(comment_count) OVER (PARTITION BY video_id ORDER BY dt) AS daily_comments
+FROM youtube_stats.daily_metrics;
+
 -- 動作確認クエリの例:
 --
 -- 最新スナップショットのview_count上位10件
@@ -63,3 +92,9 @@ LOCATION 's3://<YOUR_BUCKET>/youtube_stats/attributes/';
 --       PARTITION BY video_id ORDER BY effective_from DESC) AS rn
 --     FROM youtube_stats.attributes
 --   ) WHERE rn = 1;
+--
+-- 直近7日間で最も伸びた動画
+--   SELECT video_id, dt, daily_views, daily_likes
+--   FROM youtube_stats.daily_metrics_diff
+--   WHERE dt >= current_date - interval '7' day
+--   ORDER BY daily_views DESC LIMIT 10;
