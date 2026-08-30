@@ -1,13 +1,9 @@
 name: Fetch YouTube Statistics
 
 on:
-  # 毎時17分に実行
-  # 毎時0分はGitHub全体で最も混雑しスキップされやすいため、キリの悪い分を指定している
-  # （scheduleはベストエフォートのため、それでも遅延・スキップは起こり得る）
-  schedule:
-    - cron: '17 * * * *'
-
-  # 手動実行も可能
+  # 定期実行はAWS Lambda + EventBridge Schedulerに移行済み（SETUP_LAMBDA.md参照）。
+  # GitHub Actionsのscheduleは実行保証がなく、実測で成功率が14%まで低下したため
+  # 使わない。ここでは手動実行のみ残す。
   workflow_dispatch:
 
 permissions:
