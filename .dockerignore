@@ -1,0 +1,17 @@
+# 過去のCSVスナップショット（1.7GB超）。イメージには不要で、
+# 除外しないとビルドコンテキストの転送だけで数分かかる
+data/
+
+.git/
+.github/
+_local_s3/
+
+# Lambdaでは使わないファイル
+migrate_to_s3.py
+athena_ddl.sql
+*.md
+.env
+.env.example
+
+__pycache__/
+*.py[cod]

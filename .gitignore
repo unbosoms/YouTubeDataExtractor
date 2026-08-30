@@ -4,6 +4,9 @@
 # CSVファイル（ルートディレクトリのみ除外、dataディレクトリは含める）
 /*.csv
 
+# S3ローカル書き出しモードの出力先
+_local_s3/
+
 # Python
 __pycache__/
 *.py[cod]

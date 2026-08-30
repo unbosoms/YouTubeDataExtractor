@@ -1,7 +1,8 @@
 # YouTube Data Extractor
 
 YouTubeチャンネルの動画統計情報を取得するPythonプログラムです。
-GitHub Actionsで定期実行し、データをリポジトリに自動保存できます。
+AWS Lambda（推奨）またはGitHub Actionsで定期実行し、データをS3にParquet形式で
+保存できます。
 
 ## 機能
 
@@ -21,11 +22,12 @@ GitHub Actionsで定期実行し、データをリポジトリに自動保存で
   - サムネイルURL
   - 動画URL
 - データをタイムスタンプ付きCSVファイルで保存
+- **S3へのParquet形式保存に対応**（`S3_BUCKET`設定時。[SETUP_S3.md](SETUP_S3.md)参照）
 - 基本統計情報の表示（総視聴回数、平均視聴回数など）
 - **ショート動画、通常動画、ライブ配信の統計を個別に表示**
 - 人気動画トップ5の表示（動画タイプも表示）
-- **GitHub Actionsで毎日自動実行**
-- **データをGitHubリポジトリに自動保存**
+- **Lambda + EventBridge Schedulerで毎時自動実行**（[SETUP_LAMBDA.md](SETUP_LAMBDA.md)参照）
+- **GitHub Actionsでの定期実行にも対応**
 
 ## 必要要件
 
@@ -115,12 +117,25 @@ GitHub Actionsを使用して、毎日自動でYouTube統計を取得し、リ�
 
 ### 3. 実行スケジュール
 
-- **自動実行**: 毎日午前9時（UTC）= 日本時間18時に自動実行
+- **自動実行**: 毎時17分に自動実行
 - **手動実行**: `Actions` タブから `Fetch YouTube Statistics` を選択し、`Run workflow` で手動実行可能
+
+> **注意**: GitHub Actionsの `schedule` は公式にベストエフォートで実行保証がなく、
+> 実測で成功率が14%まで低下することがあった。確実な定期実行が必要な場合は
+> Lambda + EventBridge Scheduler（[SETUP_LAMBDA.md](SETUP_LAMBDA.md)）を使うこと。
 
 ### 4. データの保存場所
 
-取得したデータは `data/` ディレクトリに保存されます：
+**S3モード（推奨）**: リポジトリのVariableに `S3_BUCKET` を設定すると、
+データはParquet形式でS3に保存されます（Gitへのコミットは行われません）：
+
+- `s3://<バケット>/youtube_stats/metrics/year=YYYY/month=MM/*.parquet`: 指標（視聴回数等）の時系列
+- `s3://<バケット>/youtube_stats/attributes/*.parquet`: 属性（タイトル・説明文等）の変更履歴（SCD2）
+
+セットアップ手順（IAMロール・過去データ移行・Athenaテーブル作成）は
+[SETUP_S3.md](SETUP_S3.md) を参照してください。
+
+**CSVモード（従来・`S3_BUCKET`未設定時）**: 取得したデータは `data/` ディレクトリに保存されます：
 
 - `data/youtube_stats_YYYYMMDD_HHMMSS.csv`: タイムスタンプ付きデータ（履歴）
 - `data/youtube_stats_latest.csv`: 最新のデータ
