@@ -214,13 +214,15 @@ def main():
         raise ValueError(
             "YOUTUBE_API_KEYが設定されていません。\n"
             "ローカル実行の場合: .envファイルにYOUTUBE_API_KEYを設定してください。\n"
-            "GitHub Actions実行の場合: リポジトリのSecrets設定でYOUTUBE_API_KEYを追加してください。"
+            "GitHub Actions実行の場合: リポジトリのSecrets設定でYOUTUBE_API_KEYを追加してください。\n"
+            "Lambda実行の場合: Lambda関数の環境変数にYOUTUBE_API_KEYを設定してください。"
         )
     if not channel_id:
         raise ValueError(
             "YOUTUBE_CHANNEL_IDが設定されていません。\n"
             "ローカル実行の場合: .envファイルにYOUTUBE_CHANNEL_IDを設定してください。\n"
-            "GitHub Actions実行の場合: リポジトリのSecrets設定でYOUTUBE_CHANNEL_IDを追加してください。"
+            "GitHub Actions実行の場合: リポジトリのSecrets設定でYOUTUBE_CHANNEL_IDを追加してください。\n"
+            "Lambda実行の場合: Lambda関数の環境変数にYOUTUBE_CHANNEL_IDを設定してください。"
         )
 
     # 統計情報を取得
