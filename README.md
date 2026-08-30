@@ -117,12 +117,38 @@ GitHub Actionsを使用して、毎日自動でYouTube統計を取得し、リ�
 
 ### 3. 実行スケジュール
 
-- **自動実行**: 毎時17分に自動実行
-- **手動実行**: `Actions` タブから `Fetch YouTube Statistics` を選択し、`Run workflow` で手動実行可能
+定期実行の方式は2つあり、用途に応じて選べます。**両方を同時に有効にすると
+同じ時間帯にデータが二重に記録される**ので、どちらか一方にしてください。
 
-> **注意**: GitHub Actionsの `schedule` は公式にベストエフォートで実行保証がなく、
-> 実測で成功率が14%まで低下することがあった。確実な定期実行が必要な場合は
-> Lambda + EventBridge Scheduler（[SETUP_LAMBDA.md](SETUP_LAMBDA.md)）を使うこと。
+#### 構成A: 簡易構成（GitHubだけで完結）
+
+AWSの設定なしで動かせます。お試しや小規模な用途向けです。
+
+`.github/workflows/fetch_youtube_stats.yml` の `schedule:` はコメントアウトして
+あるので、コメントを外すと有効になります。
+
+```yaml
+  schedule:
+    - cron: '17 * * * *'
+```
+
+ただし**GitHubの `schedule` は公式にベストエフォートで、実行保証がありません**。
+このリポジトリでの実測では、成功率が92%から14%まで低下したことがありました。
+毎時きっちり動くことを期待しないでください。
+
+#### 構成B: リッチ構成（S3 + Lambda）※推奨
+
+AWS Lambda + EventBridge Schedulerが毎時確実に実行します。遅延・スキップは
+起こりません。費用はほぼ0円です。
+
+セットアップ手順は [SETUP_LAMBDA.md](SETUP_LAMBDA.md) を参照してください。
+この構成では、ワークフローの `schedule:` はコメントアウトしたままにします。
+
+#### 手動実行（どちらの構成でも共通）
+
+`Actions` タブから `Fetch YouTube Statistics` を選択し、`Run workflow` で
+いつでも手動実行できます。構成Bを使っている場合も、Lambdaに問題があったときの
+予備手段として利用できます。
 
 ### 4. データの保存場所
 
