@@ -42,6 +42,10 @@ env/
 *.swo
 *~
 
+# Tableau
+*.twb
+*.twbx
+
 # OS
 .DS_Store
 Thumbs.db
