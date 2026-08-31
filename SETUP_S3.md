@@ -112,16 +112,46 @@ SELECT max(snapshot_ts) FROM youtube_stats.metrics;
 
 ### 日次集計ビュー
 
-`athena_ddl.sql` には日毎の分析用ビューも含まれている:
+`athena_ddl.sql` には日毎の分析用ビュー `daily_metrics` も含まれている。
+1日1行に集約した累積値と前日比の増分、さらに各動画の最新の属性
+（タイトル・ショート/ライブ判定等）が入っているので、Tableauからは
+このビュー単体でそのまま使える。
 
-- `daily_metrics`: 日毎の各動画の視聴回数・いいね数（その日の最後の
-  スナップショット値）。累積値なので折れ線グラフ向き
-- `daily_metrics_diff`: 上記の前日比の増分。「その日に何回見られたか」を
-  表すので棒グラフ向き
+| 列 | 内容 |
+|---|---|
+| `view_count` / `like_count` / `comment_count` | その日の最終スナップショットの累積値。折れ線グラフ向き |
+| `daily_views` / `daily_likes` / `daily_comments` | 前日比の増分。「その日に何回見られたか」なので棒グラフ向き |
+| `title` / `is_short` / `is_live_broadcast` / `published_at` / `video_url` | 各動画の最新の属性 |
+| `last_snapshot_ts` / `prev_snapshot_ts` | その日・前日の最終スナップショット時刻 |
+| `hours_since_prev` | 上記2つの差（時間）。増分が実際に何時間ぶんなのかを表す |
 
-スケジュール実行は遅延・スキップが起こり得るが、これらのビューは
-「その日の最後のスナップショット」を採るため、1日1回でも成功していれば
-正しく集計される。
+日中の複数スナップショットからは**その日の最終値**を採る。いいね・コメントは
+取り消しや削除で減ることがあるため、最大値ではなく最終値を使っている
+（視聴回数は単調増加なのでどちらでも同じ）。
+
+増分は**前の行がちょうど前日のときだけ**計算し、それ以外は `NULL` になる。
+したがって次の行は `NULL` になる:
+
+- 各動画のデータ取得初日（比較相手がないため）
+- 丸1日データが欠けた日の翌日（複数日分が合算されるのを防ぐため）
+
+集計するときは `WHERE daily_views IS NOT NULL` で除外するとよい。
+
+### 増分が24時間ぶんとは限らない点への対処
+
+「前日」であっても、増分がちょうど24時間ぶんとは限らない。前日の最終取得が
+23:00、当日の最終取得が09:00なら、`daily_views` は10時間ぶんの増分になる。
+
+これを見分けられるよう `hours_since_prev`（実測の経過時間）を持たせている。
+Tableau側で `hours_since_prev < 23` のときに警告を出す、といった使い方を想定。
+
+値は実測のままにしてあるので、24時間換算が必要ならTableau側の計算フィールドで
+`daily_views * 24 / hours_since_prev` のように求める。
+
+> **旧構成からの移行**: 以前は `daily_metrics` と `daily_metrics_diff` の
+> 2ビュー構成だった。増分を `daily_metrics` に統合したので
+> `daily_metrics_diff` は不要になり、`athena_ddl.sql` の冒頭で
+> `DROP VIEW IF EXISTS` している。
 
 ## 5. Tableau Cloud/Server から接続
 
@@ -130,11 +160,12 @@ SELECT max(snapshot_ts) FROM youtube_stats.metrics;
 3. S3ステージングディレクトリ: `s3://<バケット名>/athena-results/`
    （Athenaのクエリ結果用。バケット設定のクエリ結果ロケーションと合わせる）
 4. 認証: Athena/S3の読み取り権限を持つIAMアクセスキー
-5. データベース `youtube_stats` の `metrics` / `attributes` を結合して利用
+5. データベース `youtube_stats` の **`daily_metrics`** を選ぶ
 
-時系列グラフは `metrics`（日単位なら `daily_metrics` /
-`daily_metrics_diff`）、タイトル等の表示には `attributes` の
-各動画最新行（`athena_ddl.sql` 末尾のクエリ例参照）をJOINする。
+日単位の分析は `daily_metrics` 単体で完結する（タイトル・動画種別まで
+結合済みなので、追加のJOINは不要）。時間単位の細かい推移を見たい場合だけ、
+`metrics` に `attributes` の各動画最新行（`athena_ddl.sql` 末尾のクエリ例参照）
+をJOINして使う。
 
 ## 6. （任意）リポジトリの軽量化
 
