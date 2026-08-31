@@ -64,6 +64,14 @@ DROP VIEW IF EXISTS youtube_stats.daily_metrics_diff;
 -- - 各動画のデータ取得初日（比較相手がない）
 -- - 丸1日データが欠けた日の翌日（複数日分が合算されるのを防ぐため）
 --
+-- ただし「前日」であっても、増分がちょうど24時間ぶんとは限らない。
+-- 例えば前日の最終取得が23:00、当日の最終取得が09:00なら、daily_views は
+-- 10時間ぶんの増分になる。これを見分けられるよう、実測の経過時間を持たせている:
+-- - last_snapshot_ts: その日の最終スナップショット時刻
+-- - prev_snapshot_ts: 前日の最終スナップショット時刻
+-- - hours_since_prev: 上記2つの差（時間・小数第2位まで）
+-- Tableau側で hours_since_prev < 23 のときに警告を出す、といった使い方を想定。
+--
 -- 日付はJST基準（snapshot_ts をJSTのnaive timestampとして保存しているため）
 CREATE OR REPLACE VIEW youtube_stats.daily_metrics AS
 WITH
@@ -75,7 +83,9 @@ WITH
       -- 減ることがあるため、MAXではなく最終値を採る
       max_by(view_count, snapshot_ts)    AS view_count,
       max_by(like_count, snapshot_ts)    AS like_count,
-      max_by(comment_count, snapshot_ts) AS comment_count
+      max_by(comment_count, snapshot_ts) AS comment_count,
+      -- 上の max_by が採る行の時刻そのもの。値と時刻が必ず対応する
+      max(snapshot_ts) AS last_snapshot_ts
     FROM youtube_stats.metrics
     GROUP BY video_id, date(snapshot_ts)
   ),
@@ -89,7 +99,9 @@ WITH
       lag(view_count)    OVER w AS prev_view_count,
       lag(like_count)    OVER w AS prev_like_count,
       lag(comment_count) OVER w AS prev_comment_count,
-      lag(metric_date)   OVER w AS prev_date
+      lag(metric_date)   OVER w AS prev_date,
+      last_snapshot_ts,
+      lag(last_snapshot_ts) OVER w AS prev_snapshot_ts
     FROM daily
     WINDOW w AS (PARTITION BY video_id ORDER BY metric_date)
   ),
@@ -120,7 +132,13 @@ SELECT
   CASE WHEN p.prev_date = date_add('day', -1, p.metric_date)
        THEN p.like_count - p.prev_like_count END       AS daily_likes,
   CASE WHEN p.prev_date = date_add('day', -1, p.metric_date)
-       THEN p.comment_count - p.prev_comment_count END AS daily_comments
+       THEN p.comment_count - p.prev_comment_count END AS daily_comments,
+  -- 増分が実際に何時間ぶんなのかを示す。CASEの外に出しているので、
+  -- 増分がNULLになる行（欠測明け）でも「何時間空いたか」が分かる
+  p.last_snapshot_ts,
+  p.prev_snapshot_ts,
+  round(date_diff('second', p.prev_snapshot_ts, p.last_snapshot_ts) / 3600.0, 2)
+    AS hours_since_prev
 FROM with_prev p
 LEFT JOIN latest_attrs a ON p.video_id = a.video_id;
 
@@ -154,5 +172,20 @@ LEFT JOIN latest_attrs a ON p.video_id = a.video_id;
 --          sum(CASE WHEN is_short THEN daily_views ELSE 0 END) AS shorts_views
 --   FROM youtube_stats.daily_metrics
 --   WHERE daily_views IS NOT NULL
+--   GROUP BY metric_date
+--   ORDER BY metric_date DESC LIMIT 30;
+--
+-- 測定間隔が短かった日（daily_viewsが24時間ぶんに満たない可能性がある日）
+--   SELECT metric_date, min(hours_since_prev) AS min_hours,
+--          max(hours_since_prev) AS max_hours
+--   FROM youtube_stats.daily_metrics
+--   WHERE daily_views IS NOT NULL AND hours_since_prev < 23
+--   GROUP BY metric_date
+--   ORDER BY metric_date DESC;
+--
+-- 日ごとの取得間隔のばらつき（Lambda移行後は24.0付近に揃うはず）
+--   SELECT metric_date, min(hours_since_prev) AS min_h, max(hours_since_prev) AS max_h
+--   FROM youtube_stats.daily_metrics
+--   WHERE hours_since_prev IS NOT NULL
 --   GROUP BY metric_date
 --   ORDER BY metric_date DESC LIMIT 30;

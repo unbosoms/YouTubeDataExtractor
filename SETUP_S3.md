@@ -122,6 +122,8 @@ SELECT max(snapshot_ts) FROM youtube_stats.metrics;
 | `view_count` / `like_count` / `comment_count` | その日の最終スナップショットの累積値。折れ線グラフ向き |
 | `daily_views` / `daily_likes` / `daily_comments` | 前日比の増分。「その日に何回見られたか」なので棒グラフ向き |
 | `title` / `is_short` / `is_live_broadcast` / `published_at` / `video_url` | 各動画の最新の属性 |
+| `last_snapshot_ts` / `prev_snapshot_ts` | その日・前日の最終スナップショット時刻 |
+| `hours_since_prev` | 上記2つの差（時間）。増分が実際に何時間ぶんなのかを表す |
 
 日中の複数スナップショットからは**その日の最終値**を採る。いいね・コメントは
 取り消しや削除で減ることがあるため、最大値ではなく最終値を使っている
@@ -134,6 +136,17 @@ SELECT max(snapshot_ts) FROM youtube_stats.metrics;
 - 丸1日データが欠けた日の翌日（複数日分が合算されるのを防ぐため）
 
 集計するときは `WHERE daily_views IS NOT NULL` で除外するとよい。
+
+### 増分が24時間ぶんとは限らない点への対処
+
+「前日」であっても、増分がちょうど24時間ぶんとは限らない。前日の最終取得が
+23:00、当日の最終取得が09:00なら、`daily_views` は10時間ぶんの増分になる。
+
+これを見分けられるよう `hours_since_prev`（実測の経過時間）を持たせている。
+Tableau側で `hours_since_prev < 23` のときに警告を出す、といった使い方を想定。
+
+値は実測のままにしてあるので、24時間換算が必要ならTableau側の計算フィールドで
+`daily_views * 24 / hours_since_prev` のように求める。
 
 > **旧構成からの移行**: 以前は `daily_metrics` と `daily_metrics_diff` の
 > 2ビュー構成だった。増分を `daily_metrics` に統合したので
